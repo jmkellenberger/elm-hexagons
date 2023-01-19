@@ -1,30 +1,51 @@
-module Main exposing (main)
+module Main exposing (Msg, main)
 
 import Browser
-import Html exposing (Html)
+import Hex exposing (Hex)
+import Html exposing (Html, div, p, text)
+import Html.Events exposing (onClick)
 
 
-main : Program () Int msg
+main : Program () Hex Msg
 main =
     Browser.sandbox { init = init, update = update, view = view }
 
 
 type alias Model =
-    Int
+    Hex
 
 
 init : Model
 init =
-    0
+    Hex.encode 0 0
 
 
-update : msg -> Model -> Model
+type Msg
+    = IncrementQ
+    | IncrementR
+
+
+update : Msg -> Model -> Model
 update msg model =
     case msg of
-        _ ->
-            model
+        IncrementQ ->
+            Hex.add model (Hex.encode 1 0)
+
+        IncrementR ->
+            Hex.add model (Hex.encode 0 1)
 
 
-view : Model -> Html msg
-view _ =
-    Html.div [] [ Html.text "Hello World" ]
+view : Model -> Html Msg
+view model =
+    div []
+        [ p [] [ text <| viewHex model ]
+        , p [] [ text "Neigbors:" ]
+        , Html.ol [] (List.map (\hex -> Html.li [] [ text <| viewHex hex ]) (Hex.neighbors model))
+        , Html.button [ onClick IncrementQ ] [ text "+ Q" ]
+        , Html.button [ onClick IncrementR ] [ text "+ R" ]
+        ]
+
+
+viewHex : Hex -> String
+viewHex hex =
+    Hex.toString hex
