@@ -91,29 +91,29 @@ length hex =
 
 distance : Hex -> Hex -> Int
 distance hex1 hex2 =
-    length <|
-        subtract hex1 hex2
+    length
+        (subtract hex1 hex2)
 
 
 directions : Int -> Hex
 directions dir =
     case dir of
-        1 ->
+        0 ->
             Hex 1 0
 
-        2 ->
+        1 ->
             Hex 1 -1
 
-        3 ->
+        2 ->
             Hex 0 -1
 
-        4 ->
+        3 ->
             Hex -1 0
 
-        5 ->
+        4 ->
             Hex -1 1
 
-        6 ->
+        5 ->
             Hex 0 1
 
         n ->
@@ -128,7 +128,7 @@ neighbor hex dir =
 
 neighbors : Hex -> List Hex
 neighbors hex =
-    List.map (neighbor hex) (List.range 1 6)
+    List.map (neighbor hex) (List.range 0 5)
 
 
 neighborhood : Hex -> Int -> List Hex
@@ -218,18 +218,13 @@ size1 size =
     Point size size
 
 
-size2 : Float -> Maybe Float -> Point
-size2 x maybeY =
-    case maybeY of
-        Just y ->
-            Point x y
-
-        Nothing ->
-            size1 x
+size2 : Float -> Float -> Point
+size2 x y =
+    Point x y
 
 
-toPixel : Hex -> Layout -> Point
-toPixel hex layout =
+centerPoint : Hex -> Layout -> Point
+centerPoint hex layout =
     let
         { q, r } =
             decodeToFloat hex
@@ -273,7 +268,7 @@ corners hex layout =
     let
         center : Point
         center =
-            toPixel hex layout
+            centerPoint hex layout
 
         offsets : List Point
         offsets =
