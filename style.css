@@ -6,3 +6,7 @@
   text-align: center;
   margin: 0 auto;
 }
+
+ul {
+  list-style: none;
+}

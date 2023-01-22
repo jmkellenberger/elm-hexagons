@@ -1,12 +1,12 @@
-module Main exposing (Model, Msg, Orientation, main)
+module Main exposing (Model, Msg, main)
 
 import Browser
 import Hex exposing (Hex)
-import Html exposing (..)
+import Html exposing (Html, div, text)
 import Html.Attributes as Attributes
-import Html.Events exposing (onClick, onInput, targetChecked)
+import Html.Events exposing (onClick)
+import Layout
 import Svg exposing (Svg)
-import Svg.Attributes exposing (orientation)
 
 
 main : Program () Model Msg
@@ -18,33 +18,22 @@ main =
         }
 
 
-type Orientation
-    = Flat
-    | Pointy
-
-
 type alias Model =
     { hex : Hex
     , radius : Int
-    , orientation : Orientation
+    , flatTops : Bool
+    , size : ( Float, Float )
+    , origin : ( Float, Float )
     }
-
-
-pointy : Hex.Layout
-pointy =
-    Hex.PointyTops { size = Hex.Point 15 15, origin = Hex.Point 0 0 }
-
-
-flat : Hex.Layout
-flat =
-    Hex.FlatTops { size = Hex.Point 15 15, origin = Hex.Point 0 0 }
 
 
 init : Model
 init =
     { hex = Hex.encode 0 0
     , radius = 1
-    , orientation = Flat
+    , flatTops = True
+    , size = ( 25, 25 )
+    , origin = ( 0, 0 )
     }
 
 
@@ -57,7 +46,7 @@ type Param
 type Msg
     = Increment Param
     | Decrement Param
-    | SwitchTo Orientation
+    | SwitchOrientation
 
 
 update : Msg -> Model -> Model
@@ -89,13 +78,8 @@ update msg model =
                     else
                         { model | radius = model.radius - 1 }
 
-        SwitchTo orientation ->
-            case orientation of
-                Pointy ->
-                    { model | orientation = Pointy }
-
-                Flat ->
-                    { model | orientation = Flat }
+        SwitchOrientation ->
+            { model | flatTops = not model.flatTops }
 
 
 
@@ -106,54 +90,83 @@ view : Model -> Html Msg
 view model =
     div []
         [ Html.h1 [] [ text "Hexagons" ]
-        , p [] [ text "Orientation:" ]
-        , div []
-            [ radio "Flat Tops" (model.orientation == Flat) (SwitchTo Flat)
-            , radio "Pointy Tops" (model.orientation == Pointy) (SwitchTo Pointy)
-            ]
-        , p [] [ text <| "Current Hex: " ++ viewHex model.hex ]
-        , div []
-            [ button [ onClick <| Increment Q ] [ text "+ Q" ]
-            , button [ onClick <| Decrement Q ] [ text "- Q" ]
-            , button [ onClick <| Increment R ] [ text "+ R" ]
-            , button [ onClick <| Decrement R ] [ text "- R" ]
-            ]
-        , Svg.svg []
-            [ Svg.g [] [ renderHex model.hex model ] ]
-        , p [] [ text "Neighbors:" ]
-        , Svg.svg []
-            [ Svg.g [] (List.map (\hex -> renderHex hex model) <| Hex.neighbors model.hex) ]
-        , ul [] (List.map (\hex -> Html.li [] [ text <| viewHex hex ]) (Hex.neighbors model.hex))
-        , p [] [ text ("Within " ++ String.fromInt model.radius ++ " hexes:") ]
-        , div []
-            [ button [ onClick <| Increment Radius ] [ text "+ Radius" ]
-            , button [ onClick <| Decrement Radius ] [ text "- Radius" ]
-            ]
-        , Svg.svg []
-            [ Svg.g [] (List.map (\hex -> renderHex hex model) <| Hex.neighborhood model.hex model.radius) ]
-        , ul [] (List.map (\hex -> li [] [ text <| viewHex hex ]) (Hex.neighborhood model.hex model.radius))
+        , viewOrientation model
+        , viewCurrentHex model
+        , viewNeighborhood model
         ]
 
 
-viewHex : Hex -> String
-viewHex hex =
+viewOrientation : Model -> Html Msg
+viewOrientation model =
+    div []
+        [ text "Orientation:"
+        , div []
+            [ radio "Flat Tops" model.flatTops SwitchOrientation
+            , radio "Pointy Tops" (not model.flatTops) SwitchOrientation
+            ]
+        ]
+
+
+viewCurrentHex : Model -> Html Msg
+viewCurrentHex model =
+    div []
+        [ text ("Current Hex: " ++ viewCoords model.hex)
+        , div []
+            [ Html.button [ onClick (Increment Q) ] [ text "+ Q" ]
+            , Html.button [ onClick (Decrement Q) ] [ text "- Q" ]
+            , Html.button [ onClick (Increment R) ] [ text "+ R" ]
+            , Html.button [ onClick (Decrement R) ] [ text "- R" ]
+            ]
+        , Svg.svg
+            []
+            [ Svg.g [] [ viewHex model.hex model ] ]
+        ]
+
+
+viewNeighborhood : Model -> Html Msg
+viewNeighborhood model =
+    div []
+        [ text ("Within " ++ String.fromInt model.radius ++ " hexes:")
+        , div []
+            [ Html.button [ onClick (Increment Radius) ]
+                [ text "+ Radius" ]
+            , Html.button [ onClick (Decrement Radius) ]
+                [ text "- Radius" ]
+            ]
+        , Svg.svg []
+            [ Svg.g [] (List.map (\hex -> viewHex hex model) <| Hex.neighborhood model.hex model.radius) ]
+        , Html.ul [] (List.map (\hex -> Html.li [] [ text <| viewCoords hex ]) (Hex.neighborhood model.hex model.radius))
+        ]
+
+
+viewCoords : Hex -> String
+viewCoords hex =
     Hex.toString hex
 
 
-renderHex : Hex -> Model -> Svg msg
-renderHex hex model =
-    case model.orientation of
-        Pointy ->
-            Hex.render hex pointy
-
-        Flat ->
-            Hex.render hex flat
+viewHex : Hex -> Model -> Svg msg
+viewHex hex model =
+    let
+        layout : Layout.Layout
+        layout =
+            Layout.encode
+                model.flatTops
+                model.size
+                model.origin
+    in
+    Layout.render hex layout
 
 
 radio : String -> Bool -> msg -> Html msg
 radio value isChecked msg =
-    label
+    Html.label
         []
-        [ input [ Attributes.type_ "radio", Attributes.checked isChecked, Attributes.name "font-size", onClick msg ] []
+        [ Html.input
+            [ Attributes.type_ "radio"
+            , Attributes.checked isChecked
+            , Attributes.name "font-size"
+            , onClick msg
+            ]
+            []
         , text value
         ]
