@@ -3,7 +3,10 @@ module Hex exposing
     , add
     , decodeFloat
     , encode
+    , eq
     , neighborhood
+    , neighbors
+    , rectangle
     , toString
     )
 
@@ -116,6 +119,15 @@ neighbors hex =
     List.map (neighbor hex) (List.range 0 5)
 
 
+
+-- SHAPE GENERATION
+
+
+cartesian : List Int -> List Int -> List ( Int, Int )
+cartesian xs ys =
+    List.concatMap (\x -> List.map (\y -> ( x, y )) ys) xs
+
+
 neighborhood : Hex -> Int -> List Hex
 neighborhood hex radius =
     let
@@ -136,3 +148,31 @@ neighborhood hex radius =
                 (rs dq)
         )
         qs
+
+
+rectangle : Int -> Int -> Int -> Int -> List Hex
+rectangle x1 x2 y1 y2 =
+    let
+        xs : List Int
+        xs =
+            List.range x1 x2
+
+        qOffset : Int -> Int
+        qOffset q_ =
+            floor (toFloat q_ / 2.0)
+    in
+    List.concatMap
+        (\x ->
+            List.map
+                (\y ->
+                    encode x
+                        y
+                )
+                (List.range
+                    (y1
+                        - qOffset x
+                    )
+                    (y2 - qOffset x)
+                )
+        )
+        xs

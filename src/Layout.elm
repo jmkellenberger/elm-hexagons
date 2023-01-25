@@ -175,8 +175,8 @@ corners hex layout =
     List.map toScreenSpace offsets
 
 
-render : Hex -> Layout -> Svg msg
-render hex layout =
+render : Hex -> String -> String -> Layout -> Svg msg
+render hex color outline layout =
     let
         pointToString : Point -> String
         pointToString ( x, y ) =
@@ -190,7 +190,7 @@ render hex layout =
     in
     Svg.polygon
         [ Attributes.points path
-        , Attributes.stroke "black"
-        , Attributes.fill "lightgrey"
+        , Attributes.stroke outline
+        , Attributes.fill color
         ]
         [ Svg.text <| Hex.toString hex ]
