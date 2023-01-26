@@ -5,8 +5,7 @@ import Hex exposing (Hex)
 import Html exposing (Html, div, text)
 import Html.Events exposing (onClick)
 import Layout
-import Noise
-import Random
+import Simplex
 import Svg exposing (Svg)
 import Svg.Attributes
 
@@ -23,15 +22,16 @@ main =
 type alias Model =
     { hex : Hex
     , radius : Int
-    , permTable : Noise.PermutationTable
+    , permTable : Simplex.PermutationTable
     }
 
 
 init : Model
 init =
     let
-        ( permTable, _ ) =
-            Noise.permutationTable (Random.initialSeed 1)
+        permTable : Simplex.PermutationTable
+        permTable =
+            Simplex.permutationTableFromInt 23190
     in
     { hex = Hex.encode 0 0
     , radius = 27
@@ -136,22 +136,33 @@ viewHex hex origin model =
         { q, r } =
             Hex.decodeFloat hex
 
+        fractal : Simplex.FractalConfig
+        fractal =
+            { steps = 2
+            , stepSize = 5
+            , persistence = 1
+            , scale = 8
+            }
+
         noise : Float
         noise =
-            Noise.noise2d model.permTable (q * 0.15) (r * 0.18)
+            (Simplex.fractal2d fractal model.permTable q r
+                + 1
+            )
+                / 2
 
         color : String
         color =
-            if noise < 0 then
+            if noise < 0.5 then
                 "black"
 
-            else if noise < 0.25 then
+            else if noise < 0.6 then
                 "darkgray"
 
-            else if noise < 0.5 then
-                "gray"
+            else if noise < 0.7 then
+                "darkgray"
 
-            else if noise < 0.75 then
+            else if noise < 0.8 then
                 "lightgrey"
 
             else
@@ -162,11 +173,11 @@ viewHex hex origin model =
             if Hex.eq hex model.hex then
                 "orange"
 
-            else if List.member hex (Hex.neighbors model.hex) then
-                "lightgreen"
+            else if List.member hex (Hex.neighborhood model.hex 4) then
+                "yellow"
 
             else
-                "lightblue"
+                "black"
 
         layout : Layout.Layout
         layout =
