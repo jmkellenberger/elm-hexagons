@@ -2,8 +2,9 @@ module Main exposing (Model, Msg, main)
 
 import Browser
 import Hex exposing (Hex)
-import Html exposing (Html, div, text)
-import Html.Events exposing (onClick)
+import Html exposing (Html, button, div, input, text)
+import Html.Attributes as Attributes
+import Html.Events as Events exposing (onClick)
 import Layout
 import Simplex
 import Svg exposing (Svg)
@@ -22,20 +23,36 @@ main =
 type alias Model =
     { hex : Hex
     , radius : Int
+    , seed : Int
     , permTable : Simplex.PermutationTable
+    , fractalConfig : Simplex.FractalConfig
     }
 
 
 init : Model
 init =
     let
+        config : Simplex.FractalConfig
+        config =
+            { steps = 2
+            , stepSize = 5
+            , persistence = 1
+            , scale = 8
+            }
+
+        seed : number
+        seed =
+            1
+
         permTable : Simplex.PermutationTable
         permTable =
-            Simplex.permutationTableFromInt 23190
+            Simplex.permutationTableFromInt seed
     in
     { hex = Hex.encode 0 0
     , radius = 27
+    , seed = seed
     , permTable = permTable
+    , fractalConfig = config
     }
 
 
@@ -48,6 +65,11 @@ type Param
 type Msg
     = Increment Param
     | Decrement Param
+    | SeedChanged Int
+    | ScaleChanged Float
+    | StepsChanged Int
+    | StepSizeChanged Float
+    | PersistenceChanged Float
 
 
 update : Msg -> Model -> Model
@@ -79,41 +101,68 @@ update msg model =
                     else
                         { model | radius = model.radius - 1 }
 
+        SeedChanged seed ->
+            { model | seed = seed, permTable = Simplex.permutationTableFromInt seed }
 
+        ScaleChanged scale ->
+            let
+                conf =
+                    model.fractalConfig
 
--- Checked isChecked ->
+                newConf =
+                    { conf | scale = scale }
+            in
+            { model | fractalConfig = newConf }
+
+        StepsChanged steps ->
+            let
+                conf =
+                    model.fractalConfig
+
+                newConf =
+                    { conf | steps = steps }
+            in
+            { model | fractalConfig = newConf }
+
+        StepSizeChanged stepSize ->
+            let
+                conf =
+                    model.fractalConfig
+
+                newConf =
+                    { conf | stepSize = stepSize }
+            in
+            { model | fractalConfig = newConf }
+
+        PersistenceChanged persistance ->
+            let
+                conf =
+                    model.fractalConfig
+
+                newConf =
+                    { conf | persistence = persistance }
+            in
+            { model | fractalConfig = newConf }
 
 
 view : Model -> Html Msg
 view model =
     div []
         [ Html.h1 [] [ text "Hexagons" ]
-        , viewNeighborhood model
+        , viewMap model
         , viewCurrentHex model
+        , viewNoiseControls model
         ]
 
 
-viewCurrentHex : Model -> Html Msg
-viewCurrentHex model =
-    div []
-        [ text ("Current Hex: " ++ viewCoords model.hex)
-        , div []
-            [ Html.button [ onClick (Increment Q) ] [ text "+ Q" ]
-            , Html.button [ onClick (Decrement Q) ] [ text "- Q" ]
-            , Html.button [ onClick (Increment R) ] [ text "+ R" ]
-            , Html.button [ onClick (Decrement R) ] [ text "- R" ]
-            ]
-        ]
-
-
-viewNeighborhood : Model -> Html Msg
-viewNeighborhood model =
+viewMap : Model -> Html Msg
+viewMap model =
     div []
         [ text ("Map Radius: " ++ String.fromInt model.radius ++ " hexes")
         , div []
-            [ Html.button [ onClick (Increment Radius) ]
+            [ button [ onClick (Increment Radius) ]
                 [ text "+ Radius" ]
-            , Html.button [ onClick (Decrement Radius) ]
+            , button [ onClick (Decrement Radius) ]
                 [ text "- Radius" ]
             ]
         , Svg.svg
@@ -122,6 +171,75 @@ viewNeighborhood model =
             , Svg.Attributes.viewBox "0 0 1000 1000"
             ]
             [ Svg.g [] (List.map (\hex -> viewHex hex ( 500.0, 500.0 ) model) <| Hex.neighborhood (Hex.encode 0 0) model.radius) ]
+        ]
+
+
+viewCurrentHex : Model -> Html Msg
+viewCurrentHex model =
+    div []
+        [ text ("Current Hex: " ++ viewCoords model.hex)
+        , div []
+            [ button [ onClick (Increment Q) ] [ text "+ Q" ]
+            , button [ onClick (Decrement Q) ] [ text "- Q" ]
+            , button [ onClick (Increment R) ] [ text "+ R" ]
+            , button [ onClick (Decrement R) ] [ text "- R" ]
+            ]
+        ]
+
+
+viewNoiseControls : Model -> Html Msg
+viewNoiseControls model =
+    div []
+        [ div []
+            [ Html.label [ Attributes.for "seed" ] [ text "Seed: " ]
+            , input
+                [ Events.onInput (\val -> SeedChanged (String.toInt val |> Maybe.withDefault 0))
+                , Attributes.type_ "number"
+                , Attributes.id "seed"
+                , Attributes.value (String.fromInt model.seed)
+                ]
+                []
+            ]
+        , div []
+            [ Html.label [ Attributes.for "scale" ] [ text "Scale: " ]
+            , input
+                [ Attributes.type_ "number"
+                , Events.onInput (\val -> ScaleChanged (String.toFloat val |> Maybe.withDefault 0))
+                , Attributes.id "scale"
+                , Attributes.value (String.fromFloat model.fractalConfig.scale)
+                ]
+                []
+            ]
+        , div []
+            [ Html.label [ Attributes.for "steps" ] [ text "Steps: " ]
+            , input
+                [ Events.onInput (\val -> StepsChanged (String.toInt val |> Maybe.withDefault 0))
+                , Attributes.type_ "number"
+                , Attributes.id "steps"
+                , Attributes.value (String.fromInt model.fractalConfig.steps)
+                ]
+                []
+            ]
+        , div []
+            [ Html.label [ Attributes.for "stepSize" ] [ text "Step Size: " ]
+            , input
+                [ Events.onInput (\val -> StepSizeChanged (String.toFloat val |> Maybe.withDefault 0))
+                , Attributes.type_ "number"
+                , Attributes.id "stepSize"
+                , Attributes.value (String.fromFloat model.fractalConfig.stepSize)
+                ]
+                []
+            ]
+        , div []
+            [ Html.label [ Attributes.for "persistence" ] [ text "Persistence" ]
+            , input
+                [ Events.onInput (\val -> PersistenceChanged (String.toFloat val |> Maybe.withDefault 0))
+                , Attributes.type_ "number"
+                , Attributes.id "persistance"
+                , Attributes.value (String.fromFloat model.fractalConfig.persistence)
+                ]
+                []
+            ]
         ]
 
 
@@ -136,17 +254,9 @@ viewHex hex origin model =
         { q, r } =
             Hex.decodeFloat hex
 
-        fractal : Simplex.FractalConfig
-        fractal =
-            { steps = 2
-            , stepSize = 5
-            , persistence = 1
-            , scale = 8
-            }
-
         noise : Float
         noise =
-            (Simplex.fractal2d fractal model.permTable q r
+            (Simplex.fractal2d model.fractalConfig model.permTable q r
                 + 1
             )
                 / 2
