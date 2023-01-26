@@ -5,6 +5,7 @@ module Hex exposing
     , distance
     , encode
     , eq
+    , neighbor
     , neighborhood
     , neighbors
     , toString

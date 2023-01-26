@@ -1,22 +1,25 @@
 module Main exposing (Model, Msg, main)
 
 import Browser
+import Browser.Events
 import Hex exposing (Hex)
 import Html exposing (Html, button, div, input, text)
 import Html.Attributes as Attributes
 import Html.Events as Events exposing (onClick)
+import Json.Decode as Decode
 import Layout
 import Simplex
 import Svg exposing (Svg)
-import Svg.Attributes
+import Svg.Attributes exposing (direction)
 
 
 main : Program () Model Msg
 main =
-    Browser.sandbox
-        { init = init
+    Browser.element
+        { init = \_ -> init
         , update = update
         , view = view
+        , subscriptions = subscriptions
         }
 
 
@@ -29,7 +32,7 @@ type alias Model =
     }
 
 
-init : Model
+init : ( Model, Cmd Msg )
 init =
     let
         config : Simplex.FractalConfig
@@ -48,61 +51,42 @@ init =
         permTable =
             Simplex.permutationTableFromInt seed
     in
-    { hex = Hex.encode 0 0
-    , radius = 27
-    , seed = seed
-    , permTable = permTable
-    , fractalConfig = config
-    }
-
-
-type Param
-    = Q
-    | R
-    | Radius
+    ( { hex = Hex.encode 0 0
+      , radius = 27
+      , seed = seed
+      , permTable = permTable
+      , fractalConfig = config
+      }
+    , Cmd.none
+    )
 
 
 type Msg
-    = Increment Param
-    | Decrement Param
+    = Increment
+    | Decrement
     | SeedChanged Int
     | ScaleChanged Float
     | StepsChanged Int
     | StepSizeChanged Float
     | PersistenceChanged Float
+    | HexMoved Direction
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Increment param ->
-            case param of
-                Q ->
-                    { model | hex = Hex.add model.hex (Hex.encode 1 0) }
+        Increment ->
+            ( { model | radius = model.radius + 1 }, Cmd.none )
 
-                R ->
-                    { model | hex = Hex.add model.hex (Hex.encode 0 1) }
+        Decrement ->
+            if model.radius == 0 then
+                ( model, Cmd.none )
 
-                Radius ->
-                    { model | radius = model.radius + 1 }
-
-        Decrement param ->
-            case param of
-                Q ->
-                    { model | hex = Hex.add model.hex (Hex.encode -1 0) }
-
-                R ->
-                    { model | hex = Hex.add model.hex (Hex.encode 0 -1) }
-
-                Radius ->
-                    if model.radius == 0 then
-                        model
-
-                    else
-                        { model | radius = model.radius - 1 }
+            else
+                ( { model | radius = model.radius - 1 }, Cmd.none )
 
         SeedChanged seed ->
-            { model | seed = seed, permTable = Simplex.permutationTableFromInt seed }
+            ( { model | seed = seed, permTable = Simplex.permutationTableFromInt seed }, Cmd.none )
 
         ScaleChanged scale ->
             let
@@ -112,7 +96,7 @@ update msg model =
                 newConf =
                     { conf | scale = scale }
             in
-            { model | fractalConfig = newConf }
+            ( { model | fractalConfig = newConf }, Cmd.none )
 
         StepsChanged steps ->
             let
@@ -122,7 +106,7 @@ update msg model =
                 newConf =
                     { conf | steps = steps }
             in
-            { model | fractalConfig = newConf }
+            ( { model | fractalConfig = newConf }, Cmd.none )
 
         StepSizeChanged stepSize ->
             let
@@ -132,7 +116,7 @@ update msg model =
                 newConf =
                     { conf | stepSize = stepSize }
             in
-            { model | fractalConfig = newConf }
+            ( { model | fractalConfig = newConf }, Cmd.none )
 
         PersistenceChanged persistance ->
             let
@@ -142,7 +126,87 @@ update msg model =
                 newConf =
                     { conf | persistence = persistance }
             in
-            { model | fractalConfig = newConf }
+            ( { model | fractalConfig = newConf }, Cmd.none )
+
+        HexMoved dir ->
+            let
+                newHex =
+                    case dir of
+                        NW ->
+                            Hex.neighbor model.hex 3
+
+                        N ->
+                            Hex.neighbor model.hex 2
+
+                        NE ->
+                            Hex.neighbor model.hex 1
+
+                        SE ->
+                            Hex.neighbor model.hex 0
+
+                        S ->
+                            Hex.neighbor model.hex 5
+
+                        SW ->
+                            Hex.neighbor model.hex 4
+
+                        Other ->
+                            model.hex
+
+                inBounds : Bool
+                inBounds =
+                    List.member newHex <| Hex.neighborhood (Hex.encode 0 0) model.radius
+            in
+            if inBounds then
+                ( { model | hex = newHex }, Cmd.none )
+
+            else
+                ( model, Cmd.none )
+
+
+keyDecoder : Decode.Decoder Msg
+keyDecoder =
+    Decode.map toDirection (Decode.field "key" Decode.string)
+
+
+type Direction
+    = NW
+    | N
+    | NE
+    | SW
+    | S
+    | SE
+    | Other
+
+
+toDirection : String -> Msg
+toDirection string =
+    case String.toLower string of
+        "q" ->
+            HexMoved NW
+
+        "w" ->
+            HexMoved N
+
+        "e" ->
+            HexMoved NE
+
+        "a" ->
+            HexMoved SW
+
+        "s" ->
+            HexMoved S
+
+        "d" ->
+            HexMoved SE
+
+        _ ->
+            HexMoved Other
+
+
+subscriptions : Model -> Sub Msg
+subscriptions _ =
+    Browser.Events.onKeyPress keyDecoder
 
 
 view : Model -> Html Msg
@@ -150,7 +214,11 @@ view model =
     div []
         [ Html.h1 [] [ text "Hexagons" ]
         , viewMap model
-        , viewCurrentHex model
+        , div []
+            [ text ("Current Hex: " ++ viewCoords model.hex)
+            , Html.br [] []
+            , text "(Move with QWEASD)"
+            ]
         , viewNoiseControls model
         ]
 
@@ -160,9 +228,9 @@ viewMap model =
     div []
         [ text ("Map Radius: " ++ String.fromInt model.radius ++ " hexes")
         , div []
-            [ button [ onClick (Increment Radius) ]
+            [ button [ onClick Increment ]
                 [ text "+ Radius" ]
-            , button [ onClick (Decrement Radius) ]
+            , button [ onClick Decrement ]
                 [ text "- Radius" ]
             ]
         , Svg.svg
@@ -170,20 +238,7 @@ viewMap model =
             , Svg.Attributes.height "1000"
             , Svg.Attributes.viewBox "0 0 1000 1000"
             ]
-            [ Svg.g [] (List.map (\hex -> viewHex hex ( 500.0, 500.0 ) model) <| Hex.neighborhood (Hex.encode 0 0) model.radius) ]
-        ]
-
-
-viewCurrentHex : Model -> Html Msg
-viewCurrentHex model =
-    div []
-        [ text ("Current Hex: " ++ viewCoords model.hex)
-        , div []
-            [ button [ onClick (Increment Q) ] [ text "+ Q" ]
-            , button [ onClick (Decrement Q) ] [ text "- Q" ]
-            , button [ onClick (Increment R) ] [ text "+ R" ]
-            , button [ onClick (Decrement R) ] [ text "- R" ]
-            ]
+            [ Svg.g [] (List.map (\hex -> viewHex hex ( 500.0, 500.0 ) model) <| Hex.neighborhood (Hex.encode 0 0) model.radius), viewCurrentHex ( 500.0, 500.0 ) model ]
         ]
 
 
@@ -261,22 +316,21 @@ viewHex hex origin model =
             )
                 / 2
 
+        newNoise : Float
+        newNoise =
+            noise ^ 1
+
         greyScale : String
         greyScale =
-            String.fromFloat (abs noise * 255)
+            String.fromFloat (abs newNoise * 255)
 
+        color : String
         color =
             "rgba(" ++ greyScale ++ ", " ++ greyScale ++ ", " ++ greyScale ++ ")"
 
         outline : String
         outline =
-            if Hex.eq hex model.hex then
-                "orange"
-                -- else if List.member hex (Hex.neighborhood model.hex 4) then
-                --     "yellow"
-
-            else
-                "black"
+            "black"
 
         layout : Layout.Layout
         layout =
@@ -286,3 +340,15 @@ viewHex hex origin model =
                 origin
     in
     Layout.render hex color outline layout
+
+
+viewCurrentHex : ( Float, Float ) -> Model -> Svg msg
+viewCurrentHex origin model =
+    Layout.render model.hex
+        "none"
+        "red"
+        (Layout.encode
+            True
+            ( 10, 10 )
+            origin
+        )
