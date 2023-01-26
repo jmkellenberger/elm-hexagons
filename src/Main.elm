@@ -35,9 +35,9 @@ init =
         config : Simplex.FractalConfig
         config =
             { steps = 2
-            , stepSize = 5
-            , persistence = 1
-            , scale = 8
+            , stepSize = 2
+            , persistence = 2
+            , scale = 4
             }
 
         seed : number
@@ -261,30 +261,19 @@ viewHex hex origin model =
             )
                 / 2
 
-        color : String
+        greyScale : String
+        greyScale =
+            String.fromFloat (abs noise * 255)
+
         color =
-            if noise < 0.5 then
-                "black"
-
-            else if noise < 0.6 then
-                "darkgray"
-
-            else if noise < 0.7 then
-                "darkgray"
-
-            else if noise < 0.8 then
-                "lightgrey"
-
-            else
-                "white"
+            "rgba(" ++ greyScale ++ ", " ++ greyScale ++ ", " ++ greyScale ++ ")"
 
         outline : String
         outline =
             if Hex.eq hex model.hex then
                 "orange"
-
-            else if List.member hex (Hex.neighborhood model.hex 4) then
-                "yellow"
+                -- else if List.member hex (Hex.neighborhood model.hex 4) then
+                --     "yellow"
 
             else
                 "black"
