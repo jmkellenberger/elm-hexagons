@@ -1,5 +1,6 @@
 module Main exposing (Model, Msg, main)
 
+import Bitwise
 import Browser
 import Browser.Events
 import Hex exposing (Hex)
@@ -8,15 +9,16 @@ import Html.Attributes as Attributes
 import Html.Events as Events exposing (onClick)
 import Json.Decode as Decode
 import Layout
+import Random exposing (Generator)
 import Simplex
 import Svg exposing (Svg)
-import Svg.Attributes exposing (direction)
+import Svg.Attributes
 
 
-main : Program () Model Msg
+main : Program Int Model Msg
 main =
     Browser.element
-        { init = \_ -> init
+        { init = init
         , update = update
         , view = view
         , subscriptions = subscriptions
@@ -27,13 +29,14 @@ type alias Model =
     { hex : Hex
     , radius : Int
     , seed : Int
+    , showStars : Bool
     , permTable : Simplex.PermutationTable
     , fractalConfig : Simplex.FractalConfig
     }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : Int -> ( Model, Cmd Msg )
+init time =
     let
         config : Simplex.FractalConfig
         config =
@@ -43,17 +46,14 @@ init =
             , scale = 4
             }
 
-        seed : number
-        seed =
-            1
-
         permTable : Simplex.PermutationTable
         permTable =
-            Simplex.permutationTableFromInt seed
+            Simplex.permutationTableFromInt time
     in
     ( { hex = Hex.encode 0 0
       , radius = 27
-      , seed = seed
+      , seed = time
+      , showStars = False
       , permTable = permTable
       , fractalConfig = config
       }
@@ -70,11 +70,19 @@ type Msg
     | StepSizeChanged Float
     | PersistenceChanged Float
     | HexMoved Direction
+    | ShowNoise
+    | ShowStars
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        ShowNoise ->
+            ( { model | showStars = False }, Cmd.none )
+
+        ShowStars ->
+            ( { model | showStars = True }, Cmd.none )
+
         Increment ->
             ( { model | radius = model.radius + 1 }, Cmd.none )
 
@@ -233,6 +241,12 @@ viewMap model =
             , button [ onClick Decrement ]
                 [ text "- Radius" ]
             ]
+        , div []
+            [ button [ onClick ShowNoise ]
+                [ text "Show Noise" ]
+            , button [ onClick ShowStars ]
+                [ text "Show Stars" ]
+            ]
         , Svg.svg
             [ Svg.Attributes.width "1000"
             , Svg.Attributes.height "1000"
@@ -328,18 +342,34 @@ viewHex hex origin model =
         color =
             "rgba(" ++ greyScale ++ ", " ++ greyScale ++ ", " ++ greyScale ++ ")"
 
-        outline : String
-        outline =
-            "black"
+        fill : String
+        fill =
+            if model.showStars then
+                let
+                    localSeed : Random.Seed
+                    localSeed =
+                        Random.initialSeed <|
+                            round (toFloat model.seed * noise)
+
+                    ( starRoll, _ ) =
+                        Random.step (Random.float 0 1) localSeed
+                in
+                if (starRoll + 0.1) <= newNoise then
+                    "white"
+
+                else
+                    "black"
+
+            else
+                color
 
         layout : Layout.Layout
         layout =
             Layout.encode
-                True
                 ( 10, 10 )
                 origin
     in
-    Layout.render hex color outline layout
+    Layout.render hex fill color layout
 
 
 viewCurrentHex : ( Float, Float ) -> Model -> Svg msg
@@ -348,7 +378,6 @@ viewCurrentHex origin model =
         "none"
         "red"
         (Layout.encode
-            True
             ( 10, 10 )
             origin
         )

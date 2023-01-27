@@ -32,19 +32,10 @@ type Layout
         }
 
 
-encode : Bool -> Point -> Point -> Layout
-encode flatTops size origin =
-    let
-        orientation : Orientation
-        orientation =
-            if flatTops then
-                orientationFlat
-
-            else
-                orientationPointy
-    in
+encode : Point -> Point -> Layout
+encode size origin =
     Layout
-        { orientation = orientation
+        { orientation = orientationFlat
         , size = size
         , origin = origin
         }
@@ -58,24 +49,6 @@ floatRound precision number =
             toFloat <| 10 ^ precision
     in
     (toFloat << round) (number * k) / k
-
-
-orientationPointy : Orientation
-orientationPointy =
-    { forwardMatrix =
-        { f0 = sqrt 3.0
-        , f1 = sqrt 3.0 / 2.0
-        , f2 = 0.0
-        , f3 = 3.0 / 2.0
-        }
-    , inverseMatrix =
-        { f0 = sqrt 3.0 / 3.0
-        , f1 = -1.0 / 3.0
-        , f2 = 0.0
-        , f3 = 2.0 / 3.0
-        }
-    , startAngle = 0.5
-    }
 
 
 orientationFlat : Orientation
